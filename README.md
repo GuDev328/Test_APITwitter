@@ -1,3 +1,3 @@
 
-### Bacsic test for repo API-Twitter
+### Basic test for repo API-Twitter
 
