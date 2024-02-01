@@ -10,6 +10,7 @@ import Home from "./Components/Home.js";
 import PlayVideoHLS from "./Components/PlayVideoHLS";
 import LoginGoogle from "./Components/LoginGoogle";
 import VerifyEmail from "./Components/VerifyEmail";
+import Chat from "./Components/Chat";
 
 const router = createBrowserRouter([
     {
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
     {
         path: "verify-email",
         element: <VerifyEmail />,
+    },
+    {
+        path: "chat",
+        element: <Chat />,
     },
 ]);
 
