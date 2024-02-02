@@ -30,7 +30,6 @@ function App() {
                         "user",
                         JSON.stringify(res.data.result)
                     );
-                    console.log(res.data.result);
                 });
         }
     });

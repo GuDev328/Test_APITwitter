@@ -15,6 +15,7 @@
     "path-browserify": "^1.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-infinite-scroll-component": "^6.1.0",
     "react-router-dom": "^6.21.3",
     "react-scripts": "5.0.1",
     "socket.io-client": "^4.7.4",

@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import socket from "../socket";
 import axios from "axios";
+import InfiniteScroll from "react-infinite-scroll-component";
 
 export default function Chat() {
     const [value, setValue] = useState("");
     const [receiver, setReceiver] = useState("");
+    const [userSelected, setUserSelected] = useState("");
     const [messages, setMessages] = useState([]);
+    const [pagiantion, setPagination] = useState({
+        page: 1,
+        total_page: 0,
+    });
     useEffect(() => {
         if (localStorage.getItem("user")) {
             socket.auth = {
@@ -33,14 +39,18 @@ export default function Chat() {
                             "access_token"
                         )}`,
                     },
-                    query: {
-                        limit: 100,
+                    params: {
+                        limit: 10,
                         page: 1,
                     },
                     baseURL: "http://localhost:3030",
                 })
                 .then((res) => {
                     setMessages(res.data.result);
+                    setPagination({
+                        total_page: res.data.total_page,
+                        page: res.data.page,
+                    });
                 });
         }
     }, [receiver]);
@@ -48,12 +58,12 @@ export default function Chat() {
     const handleReceiver = (data) => {
         if (data.sender_id === receiver) {
             setMessages((messages) => [
-                ...messages,
                 {
                     sender_id: data.sender_id,
                     receiver_id: data.receiver_id,
                     content: data.content,
                 },
+                ...messages,
             ]);
         }
     };
@@ -62,6 +72,7 @@ export default function Chat() {
     const user = JSON.parse(localStorage.getItem("user"));
 
     const getProfile = async (username) => {
+        setUserSelected(username);
         const info = await axios.get(
             `/users/get-profile/?username=${username}`,
             {
@@ -84,14 +95,44 @@ export default function Chat() {
             content: value,
         });
         setMessages((messages) => [
-            ...messages,
             {
                 sender_id: user._id,
                 receiver_id: receiver,
                 content: value,
             },
+            ...messages,
         ]);
         setValue("");
+    };
+
+    console.log(pagiantion.page);
+
+    const fetchMoreMessages = async () => {
+        if (receiver && pagiantion.page < pagiantion.total_page) {
+            const info = await axios
+                .get(`/conversations/get-conversation/${receiver}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem(
+                            "access_token"
+                        )}`,
+                    },
+                    params: {
+                        limit: 10,
+                        page: pagiantion.page + 1,
+                    },
+                    baseURL: "http://localhost:3030",
+                })
+                .then((res) => {
+                    setMessages((messages) => [
+                        ...messages,
+                        ...res.data.result,
+                    ]);
+                    setPagination({
+                        total_page: res.data.total_page,
+                        page: res.data.page,
+                    });
+                });
+        }
     };
 
     return (
@@ -100,35 +141,66 @@ export default function Chat() {
                 {usernames.map((username) => (
                     <button
                         onClick={() => getProfile(username)}
-                        className="bg-blue-500 hover:bg-blue-700 text-white inline-block m-5 font-bold py-2 px-4 rounded"
+                        className={`${
+                            userSelected === username
+                                ? "bg-yellow-500"
+                                : "bg-blue-500"
+                        } hover:bg-blue-700 text-white inline-block m-5 font-bold py-2 px-4 rounded`}
                     >
                         {username}
                     </button>
                 ))}
             </div>
-            <div className="flex flex-col justify-end items-center w-4/5 h-screen">
-                {messages.map((message) => (
-                    <div className="w-1/2">
-                        {!(message.sender_id === user._id) ? (
-                            <div className="w-1/2">
-                                <div class="bg-blue-500 text-white block p-2 rounded-md float-start m-1">
-                                    <p class="text-sm break-words inline-block">
-                                        {message.content}
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="w-1/2 float-end">
-                                <div class="bg-blue-500 text-white block p-2 rounded-md float-end m-1">
-                                    <p class="text-sm break-words inline-block">
-                                        {message.content}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
 
+            <div className="flex flex-col justify-end items-center w-4/5 h-screen">
+                <div
+                    className=""
+                    id="scrollableDiv"
+                    style={{
+                        width: "70%",
+                        height: 400,
+                        overflow: "auto",
+                        display: "flex",
+                        flexDirection: "column-reverse",
+                    }}
+                >
+                    {/*Put the scroll bar always on the bottom*/}
+                    <InfiniteScroll
+                        className=""
+                        dataLength={messages.length}
+                        next={fetchMoreMessages}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column-reverse",
+                        }} //To put endMessage and loader to the top.
+                        inverse={true} //
+                        hasMore={true}
+                        loader={<></>}
+                        scrollableTarget="scrollableDiv"
+                    >
+                        {messages.map((message) => (
+                            <div className="">
+                                {!(message.sender_id === user._id) ? (
+                                    <div className="w-1/2">
+                                        <div class="bg-blue-500 text-white block p-2 rounded-md float-start m-1">
+                                            <p class="text-sm break-words inline-block">
+                                                {message.content}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-1/2 float-end">
+                                        <div class="bg-blue-500 text-white block p-2 rounded-md float-end m-1">
+                                            <p class="text-sm break-words inline-block">
+                                                {message.content}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </InfiniteScroll>
+                </div>
                 <div className="w-1/2 mb-12   ">
                     <form onSubmit={handleSubmit}>
                         <input
