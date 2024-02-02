@@ -7,25 +7,59 @@ export default function Chat() {
     const [receiver, setReceiver] = useState("");
     const [messages, setMessages] = useState([]);
     useEffect(() => {
-        socket.auth = {
-            _id: JSON.parse(localStorage.getItem("user"))._id,
-        };
-        socket.connect();
-        socket.on("receiver-chat", (data) => {
+        if (localStorage.getItem("user")) {
+            socket.auth = {
+                _id: JSON.parse(localStorage.getItem("user"))._id,
+            };
+            socket.connect();
+
+            return () => {
+                socket.disconnect();
+            };
+        } else {
+            alert("Vui lòng đăng nhập để chat");
+            window.location.href = "/";
+        }
+    }, []);
+
+    useEffect(() => {
+        socket.off("receiver-chat");
+        socket.on("receiver-chat", (data) => handleReceiver(data));
+        if (receiver) {
+            const info = axios
+                .get(`/conversations/get-conversation/${receiver}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem(
+                            "access_token"
+                        )}`,
+                    },
+                    query: {
+                        limit: 100,
+                        page: 1,
+                    },
+                    baseURL: "http://localhost:3030",
+                })
+                .then((res) => {
+                    setMessages(res.data.result);
+                });
+        }
+    }, [receiver]);
+
+    const handleReceiver = (data) => {
+        if (data.sender_id === receiver) {
             setMessages((messages) => [
                 ...messages,
                 {
+                    sender_id: data.sender_id,
+                    receiver_id: data.receiver_id,
                     content: data.content,
-                    isSender: false,
                 },
             ]);
-        });
-        return () => {
-            socket.disconnect();
-        };
-    }, []);
+        }
+    };
 
     const usernames = ["datminiphi", "datbbu328", "menephe"];
+    const user = JSON.parse(localStorage.getItem("user"));
 
     const getProfile = async (username) => {
         const info = await axios.get(
@@ -39,21 +73,22 @@ export default function Chat() {
                 baseURL: "http://localhost:3030",
             }
         );
-
         setReceiver(info.data.result._id);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         socket.emit("chat", {
+            sender_id: user._id,
+            receiver_id: receiver,
             content: value,
-            to: receiver, //id user datbbu
         });
         setMessages((messages) => [
             ...messages,
             {
+                sender_id: user._id,
+                receiver_id: receiver,
                 content: value,
-                isSender: true,
             },
         ]);
         setValue("");
@@ -65,17 +100,16 @@ export default function Chat() {
                 {usernames.map((username) => (
                     <button
                         onClick={() => getProfile(username)}
-                        key={username}
                         className="bg-blue-500 hover:bg-blue-700 text-white inline-block m-5 font-bold py-2 px-4 rounded"
                     >
                         {username}
                     </button>
                 ))}
             </div>
-            <div className="flex flex-col justify-center items-center w-4/5 h-screen">
+            <div className="flex flex-col justify-end items-center w-4/5 h-screen">
                 {messages.map((message) => (
                     <div className="w-1/2">
-                        {!message.isSender ? (
+                        {!(message.sender_id === user._id) ? (
                             <div className="w-1/2">
                                 <div class="bg-blue-500 text-white block p-2 rounded-md float-start m-1">
                                     <p class="text-sm break-words inline-block">
@@ -95,7 +129,7 @@ export default function Chat() {
                     </div>
                 ))}
 
-                <div className="w-1/2">
+                <div className="w-1/2 mb-12   ">
                     <form onSubmit={handleSubmit}>
                         <input
                             value={value}
