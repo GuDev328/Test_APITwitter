@@ -8,19 +8,29 @@ export default function Chat() {
     const [receiver, setReceiver] = useState("");
     const [userSelected, setUserSelected] = useState("");
     const [messages, setMessages] = useState([]);
+    const [isConnectedSocket, setIsConnectedSocket] = useState(false);
     const [pagiantion, setPagination] = useState({
         page: 1,
         total_page: 0,
     });
     useEffect(() => {
-        if (localStorage.getItem("user")) {
+        if (localStorage.getItem("access_token")) {
             socket.auth = {
-                _id: JSON.parse(localStorage.getItem("user"))._id,
+                access_token: localStorage.getItem("access_token"),
             };
             socket.connect();
-
+            setIsConnectedSocket(true);
+            socket.on("disconnect", () => {
+                setIsConnectedSocket(false);
+                console.log("socket disconnected");
+            });
+            socket.on("connect_error", (err) => {
+                setIsConnectedSocket(false);
+                console.log(err);
+            });
             return () => {
                 socket.disconnect();
+                setIsConnectedSocket(false);
             };
         } else {
             alert("Vui lòng đăng nhập để chat");
@@ -30,7 +40,18 @@ export default function Chat() {
 
     useEffect(() => {
         socket.off("receiver-chat");
-        socket.on("receiver-chat", (data) => handleReceiver(data));
+        socket.on("receiver-chat", (data) => {
+            if (data.sender_id === receiver) {
+                setMessages((messages) => [
+                    {
+                        sender_id: data.sender_id,
+                        receiver_id: data.receiver_id,
+                        content: data.content,
+                    },
+                    ...messages,
+                ]);
+            }
+        });
         if (receiver) {
             const info = axios
                 .get(`/conversations/get-conversation/${receiver}`, {
@@ -54,19 +75,6 @@ export default function Chat() {
                 });
         }
     }, [receiver]);
-
-    const handleReceiver = (data) => {
-        if (data.sender_id === receiver) {
-            setMessages((messages) => [
-                {
-                    sender_id: data.sender_id,
-                    receiver_id: data.receiver_id,
-                    content: data.content,
-                },
-                ...messages,
-            ]);
-        }
-    };
 
     const usernames = ["datminiphi", "datbbu328", "menephe"];
     const user = JSON.parse(localStorage.getItem("user"));
@@ -94,18 +102,18 @@ export default function Chat() {
             receiver_id: receiver,
             content: value,
         });
-        setMessages((messages) => [
-            {
-                sender_id: user._id,
-                receiver_id: receiver,
-                content: value,
-            },
-            ...messages,
-        ]);
+        if (isConnectedSocket) {
+            setMessages((messages) => [
+                {
+                    sender_id: user._id,
+                    receiver_id: receiver,
+                    content: value,
+                },
+                ...messages,
+            ]);
+        }
         setValue("");
     };
-
-    console.log(pagiantion.page);
 
     const fetchMoreMessages = async () => {
         if (receiver && pagiantion.page < pagiantion.total_page) {
